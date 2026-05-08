@@ -22,6 +22,12 @@ export const useFamilyStore = defineStore('family', () => {
     return loadMembers()
   }
 
+  async function addMember(data) {
+    const { data: member } = await api.post('/api/family/members', data)
+    members.value.push(member)
+    return member
+  }
+
   async function updateMember(id, data) {
     const { data: updated } = await api.patch(`/api/family/members/${id}`, data)
     const idx = members.value.findIndex((m) => m.id === id)
@@ -29,10 +35,15 @@ export const useFamilyStore = defineStore('family', () => {
     return updated
   }
 
+  async function deleteMember(id) {
+    await api.delete(`/api/family/members/${id}`)
+    members.value = members.value.filter((m) => m.id !== id)
+  }
+
   async function fetchPointsRanking() {
     const { data } = await api.get('/api/family/points')
     pointsRanking.value = Array.isArray(data) ? data : data.items || []
   }
 
-  return { members, currentMember, pointsRanking, loading, loadMembers, fetchMembers, updateMember, fetchPointsRanking }
+  return { members, currentMember, pointsRanking, loading, loadMembers, fetchMembers, addMember, updateMember, deleteMember, fetchPointsRanking }
 })

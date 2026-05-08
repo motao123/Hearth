@@ -38,10 +38,22 @@ export const useMealsStore = defineStore('meals', () => {
     return recipe
   }
 
+  async function updateRecipe(id, data) {
+    const { data: updated } = await api.patch(`/api/meals/recipes/${id}`, data)
+    const idx = recipes.value.findIndex((r) => r.id === id)
+    if (idx !== -1) recipes.value[idx] = updated
+    return updated
+  }
+
+  async function deleteRecipe(id) {
+    await api.delete(`/api/meals/recipes/${id}`)
+    recipes.value = recipes.value.filter((r) => r.id !== id)
+  }
+
   async function exportToShopping(date) {
     const { data } = await api.post('/api/meals/export-to-shopping', { start_date: date, end_date: date })
     return data
   }
 
-  return { mealPlan, recipes, loading, fetchMealPlan, setMealPlan, fetchRecipes, createRecipe, exportToShopping }
+  return { mealPlan, recipes, loading, fetchMealPlan, setMealPlan, fetchRecipes, createRecipe, updateRecipe, deleteRecipe, exportToShopping }
 })

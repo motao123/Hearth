@@ -28,10 +28,22 @@ export const useBudgetStore = defineStore('budget', () => {
     summary.value = data
   }
 
+  async function updateEntry(id, data) {
+    const { data: updated } = await api.patch(`/api/budget/entries/${id}`, data)
+    const idx = entries.value.findIndex((e) => e.id === id)
+    if (idx !== -1) entries.value[idx] = updated
+    return updated
+  }
+
+  async function deleteEntry(id) {
+    await api.delete(`/api/budget/entries/${id}`)
+    entries.value = entries.value.filter((e) => e.id !== id)
+  }
+
   async function fetchHongbao() {
     const { data } = await api.get('/api/budget/hongbao')
     return data
   }
 
-  return { entries, summary, loading, fetchEntries, addEntry, fetchSummary, fetchHongbao }
+  return { entries, summary, loading, fetchEntries, addEntry, updateEntry, deleteEntry, fetchSummary, fetchHongbao }
 })

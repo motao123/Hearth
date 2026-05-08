@@ -71,7 +71,7 @@
     </div>
     <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="divide-y divide-gray-50">
-        <div v-for="entry in displayEntries" :key="entry.id" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+        <div v-for="entry in displayEntries" :key="entry.id" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0" :class="entry.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'">
             {{ entry.type === 'income' ? '↓' : '↑' }}
           </div>
@@ -86,13 +86,19 @@
           <div class="text-sm font-semibold shrink-0" :class="entry.type === 'income' ? 'text-green-600' : 'text-red-600'">
             {{ entry.type === 'income' ? '+' : '-' }}¥{{ (entry.amount || 0).toLocaleString() }}
           </div>
+          <button @click="openEdit(entry)" class="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="编辑">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+          </button>
+          <button @click="handleDelete(entry)" class="p-1.5 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="删除">
+            <svg class="w-4 h-4 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Add Entry Modal -->
-    <Modal :show="showAddModal" title="添加记录" @close="showAddModal = false">
-      <form @submit.prevent="handleAdd" class="space-y-4">
+    <!-- Add/Edit Entry Modal -->
+    <Modal :show="showModal" :title="editingEntry ? '编辑记录' : '添加记录'" @close="closeModal">
+      <form @submit.prevent="handleSave" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
           <div class="flex gap-2">
@@ -128,11 +134,16 @@
           <input type="checkbox" v-model="form.is_hongbao" id="hk-hongbao" class="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-500" />
           <label for="hk-hongbao" class="text-sm text-gray-700">标记为人情往来</label>
         </div>
-        <button type="submit" :disabled="saving" class="w-full py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
-          {{ saving ? '保存中...' : '添加' }}
-        </button>
+        <div class="flex gap-3">
+          <button type="submit" :disabled="saving" class="flex-1 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
+            {{ saving ? '保存中...' : (editingEntry ? '保存修改' : '添加') }}
+          </button>
+          <button v-if="editingEntry" type="button" @click="confirmDelete" class="px-4 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors">删除</button>
+        </div>
       </form>
     </Modal>
+
+    <ConfirmDialog :show="showConfirm" :message="confirmMessage" @confirm="confirmAction" @cancel="showConfirm = false" />
   </div>
 </template>
 
@@ -142,13 +153,18 @@ import dayjs from 'dayjs'
 import { useBudgetStore } from '@/stores/budget'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const budgetStore = useBudgetStore()
 
 const currentMonth = ref(dayjs())
 const activeTab = ref('all')
-const showAddModal = ref(false)
+const showModal = ref(false)
+const editingEntry = ref(null)
 const saving = ref(false)
+const showConfirm = ref(false)
+const confirmMessage = ref('')
+let pendingConfirmAction = null
 const hongbaoEntries = ref([])
 
 const form = ref({
@@ -228,24 +244,75 @@ function goCurrentMonth() {
   loadData()
 }
 
-async function handleAdd() {
+async function handleSave() {
   saving.value = true
   try {
-    await budgetStore.addEntry({
-      type: form.value.type,
-      amount: form.value.amount,
-      category: form.value.category,
-      description: form.value.description,
-      date: form.value.date,
-      is_hongbao: form.value.is_hongbao,
-    })
-    showAddModal.value = false
-    form.value = { type: 'expense', amount: null, category: 'food', description: '', date: dayjs().format('YYYY-MM-DD'), is_hongbao: false }
+    if (editingEntry.value) {
+      await budgetStore.updateEntry(editingEntry.value.id, {
+        type: form.value.type,
+        amount: form.value.amount,
+        category: form.value.category,
+        description: form.value.description,
+        date: form.value.date,
+        is_hongbao: form.value.is_hongbao,
+      })
+    } else {
+      await budgetStore.addEntry({
+        type: form.value.type,
+        amount: form.value.amount,
+        category: form.value.category,
+        description: form.value.description,
+        date: form.value.date,
+        is_hongbao: form.value.is_hongbao,
+      })
+    }
+    closeModal()
     await loadData()
   } catch {
     // handled
   } finally {
     saving.value = false
+  }
+}
+
+function openEdit(entry) {
+  editingEntry.value = entry
+  form.value = {
+    type: entry.type,
+    amount: entry.amount,
+    category: entry.category,
+    description: entry.description || '',
+    date: entry.date,
+    is_hongbao: entry.is_hongbao || false,
+  }
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  editingEntry.value = null
+  form.value = { type: 'expense', amount: null, category: 'food', description: '', date: dayjs().format('YYYY-MM-DD'), is_hongbao: false }
+}
+
+function handleDelete(entry) {
+  confirmMessage.value = `确定删除「${entry.description || categoryLabel(entry.category)}」¥${entry.amount} 吗？`
+  pendingConfirmAction = async () => {
+    await budgetStore.deleteEntry(entry.id)
+    await loadData()
+  }
+  showConfirm.value = true
+}
+
+function confirmDelete() {
+  handleDelete(editingEntry.value)
+  closeModal()
+}
+
+async function confirmAction() {
+  showConfirm.value = false
+  if (pendingConfirmAction) {
+    await pendingConfirmAction()
+    pendingConfirmAction = null
   }
 }
 

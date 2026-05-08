@@ -11,6 +11,16 @@ from app.api.deps import get_current_user
 router = APIRouter()
 
 
+class MemberCreate(BaseModel):
+    name: str
+    role: str = "parent"
+    avatar: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    birthday: str | None = None
+    is_lunar: bool = False
+
+
 class MemberUpdate(BaseModel):
     name: str | None = None
     role: str | None = None
@@ -50,6 +60,33 @@ async def list_members(
     )
     members = result.scalars().all()
     return [_member_dict(m) for m in members]
+
+
+@router.post("/members")
+async def add_member(
+    create: MemberCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """添加家庭成员"""
+    if not user.member:
+        raise HTTPException(403, "当前用户未关联家庭成员")
+    family_id = user.member.family_id
+
+    member = Member(
+        family_id=family_id,
+        name=create.name,
+        role=create.role,
+        avatar=create.avatar,
+        phone=create.phone,
+        email=create.email,
+        birthday=create.birthday,
+        is_lunar=create.is_lunar,
+    )
+    db.add(member)
+    await db.commit()
+    await db.refresh(member)
+    return _member_dict(member)
 
 
 @router.get("/members/{member_id}")
@@ -98,6 +135,33 @@ async def update_member(
     await db.commit()
     await db.refresh(member)
     return _member_dict(member)
+
+
+@router.delete("/members/{member_id}")
+async def delete_member(
+    member_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """删除家庭成员"""
+    if not user.member:
+        raise HTTPException(403, "当前用户未关联家庭成员")
+    family_id = user.member.family_id
+
+    result = await db.execute(
+        select(Member).where(Member.id == member_id, Member.family_id == family_id)
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "成员不存在")
+
+    # 不允许删除自己
+    if member.id == user.member.id:
+        raise HTTPException(400, "不能删除自己的成员信息")
+
+    await db.delete(member)
+    await db.commit()
+    return {"message": "已删除"}
 
 
 @router.get("/points")

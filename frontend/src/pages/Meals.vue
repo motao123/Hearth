@@ -70,20 +70,31 @@
           <div
             v-for="recipe in filteredRecipes"
             :key="recipe.id"
-            class="p-3 border border-gray-100 rounded-lg hover:border-orange-200 hover:bg-orange-50/30 cursor-pointer transition-colors"
-            @click="assignRecipe(recipe)"
+            class="p-3 border border-gray-100 rounded-lg hover:border-orange-200 hover:bg-orange-50/30 transition-colors group"
           >
-            <div class="font-medium text-sm text-gray-900">{{ recipe.name }}</div>
-            <div v-if="recipe.ingredients" class="text-xs text-gray-400 mt-1 line-clamp-2">{{ recipe.ingredients }}</div>
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex-1 min-w-0 cursor-pointer" @click="assignRecipe(recipe)">
+                <div class="font-medium text-sm text-gray-900">{{ recipe.name }}</div>
+                <div v-if="recipe.ingredients" class="text-xs text-gray-400 mt-1 line-clamp-2">{{ recipe.ingredients }}</div>
+              </div>
+              <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button @click="openEditRecipe(recipe)" class="p-1 hover:bg-gray-100 rounded" title="编辑">
+                  <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+                <button @click="handleDeleteRecipe(recipe)" class="p-1 hover:bg-red-50 rounded" title="删除">
+                  <svg class="w-3.5 h-3.5 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <EmptyState v-if="filteredRecipes.length === 0" icon="🍳" message="暂无食谱" />
       </div>
     </template>
 
-    <!-- Add Recipe Modal -->
-    <Modal :show="showAddRecipe" title="添加食谱" @close="showAddRecipe = false">
-      <form @submit.prevent="handleAddRecipe" class="space-y-4">
+    <!-- Add/Edit Recipe Modal -->
+    <Modal :show="showRecipeModal" :title="editingRecipe ? '编辑食谱' : '添加食谱'" @close="closeRecipeModal">
+      <form @submit.prevent="handleSaveRecipe" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">食谱名称 *</label>
           <input v-model="recipeForm.name" type="text" required class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none" placeholder="如: 番茄炒蛋" />
@@ -105,11 +116,16 @@
             </label>
           </div>
         </div>
-        <button type="submit" :disabled="saving" class="w-full py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
-          {{ saving ? '保存中...' : '添加食谱' }}
-        </button>
+        <div class="flex gap-3">
+          <button type="submit" :disabled="saving" class="flex-1 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
+            {{ saving ? '保存中...' : (editingRecipe ? '保存修改' : '添加食谱') }}
+          </button>
+          <button v-if="editingRecipe" type="button" @click="handleDeleteRecipe(editingRecipe)" class="px-4 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors">删除</button>
+        </div>
       </form>
     </Modal>
+
+    <ConfirmDialog :show="showConfirm" :message="confirmMessage" @confirm="confirmAction" @cancel="showConfirm = false" />
   </div>
 </template>
 
@@ -121,6 +137,7 @@ import { useMealsStore } from '@/stores/meals'
 import { useShoppingStore } from '@/stores/shopping'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 dayjs.extend(isoWeek)
 
@@ -129,9 +146,13 @@ const shoppingStore = useShoppingStore()
 
 const weekStart = ref(dayjs().startOf('isoWeek'))
 const showRecipePanel = ref(false)
-const showAddRecipe = ref(false)
+const showRecipeModal = ref(false)
+const editingRecipe = ref(null)
 const saving = ref(false)
 const recipeSearch = ref('')
+const showConfirm = ref(false)
+const confirmMessage = ref('')
+let pendingConfirmAction = null
 
 const selectedSlot = ref({ date: '', meal: '' })
 
@@ -222,16 +243,55 @@ async function clearMeal(date, mealType) {
   }
 }
 
-async function handleAddRecipe() {
+async function handleSaveRecipe() {
   saving.value = true
   try {
-    await mealsStore.createRecipe(recipeForm.value)
-    showAddRecipe.value = false
-    recipeForm.value = { name: '', ingredients: '', instructions: '', meal_type: 'lunch' }
+    if (editingRecipe.value) {
+      await mealsStore.updateRecipe(editingRecipe.value.id, recipeForm.value)
+    } else {
+      await mealsStore.createRecipe(recipeForm.value)
+    }
+    closeRecipeModal()
+    await mealsStore.fetchRecipes()
   } catch {
     // handled
   } finally {
     saving.value = false
+  }
+}
+
+function openEditRecipe(recipe) {
+  editingRecipe.value = recipe
+  recipeForm.value = {
+    name: recipe.name || '',
+    ingredients: recipe.ingredients || '',
+    instructions: recipe.instructions || '',
+    meal_type: recipe.meal_type || 'lunch',
+  }
+  showRecipeModal.value = true
+}
+
+function closeRecipeModal() {
+  showRecipeModal.value = false
+  editingRecipe.value = null
+  recipeForm.value = { name: '', ingredients: '', instructions: '', meal_type: 'lunch' }
+}
+
+function handleDeleteRecipe(recipe) {
+  confirmMessage.value = `确定删除食谱「${recipe.name}」吗？`
+  pendingConfirmAction = async () => {
+    await mealsStore.deleteRecipe(recipe.id)
+    await mealsStore.fetchRecipes()
+    closeRecipeModal()
+  }
+  showConfirm.value = true
+}
+
+async function confirmAction() {
+  showConfirm.value = false
+  if (pendingConfirmAction) {
+    await pendingConfirmAction()
+    pendingConfirmAction = null
   }
 }
 
