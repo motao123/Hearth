@@ -1,0 +1,27 @@
+{
+  "name": "hearth-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5",
+    "vue-router": "^4.5",
+    "pinia": "^3.0",
+    "axios": "^1.9",
+    "dayjs": "^1.11",
+    "lunar-javascript": "^1.6"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2",
+    "autoprefixer": "^10.4",
+    "postcss": "^8.5",
+    "tailwindcss": "^4.1",
+    "vite": "^6.3",
+    "vite-plugin-pwa": "^1.0"
+  }
+}

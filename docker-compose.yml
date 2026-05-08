@@ -1,0 +1,17 @@
+services:
+  hearth:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: hearth
+    ports:
+      - "8090:8090"
+    volumes:
+      - hearth-data:/app/data
+      - hearth-backups:/app/backups
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  hearth-data:
+  hearth-backups:
