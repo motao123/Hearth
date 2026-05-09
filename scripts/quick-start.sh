@@ -70,7 +70,7 @@ info ".env 已生成"
 cat > docker-compose.yml << 'COMPOSE'
 services:
   hearth:
-    image: motao123/hearth:latest
+    image: imotao/hearth:latest
     container_name: hearth
     ports:
       - "127.0.0.1:8090:8090"

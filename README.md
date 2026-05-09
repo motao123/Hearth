@@ -77,7 +77,7 @@ docker compose up -d
 
 打开 `http://localhost:8090`，创建账号即可使用。
 
-> 镜像地址: `docker pull motao123/hearth:latest`
+> 镜像地址: `docker pull imotao/hearth:latest`
 
 ### 从源码运行
 
