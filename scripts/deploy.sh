@@ -16,7 +16,11 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 if ! command -v docker &>/dev/null; then
     error "Docker 未安装。请先在宝塔软件商店安装 Docker 管理器"
 fi
-if ! docker compose version &>/dev/null; then
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE="docker-compose"
+else
     error "Docker Compose 未安装。请先在宝塔 Docker 管理器中安装"
 fi
 
@@ -60,7 +64,7 @@ warn "JWT 密钥已写入 .env，请妥善保管此文件"
 
 # ---- 启动 Docker ----
 info "正在构建并启动 Docker 容器（首次可能需要几分钟）..."
-docker compose up -d --build
+$COMPOSE up -d --build
 
 info "等待服务启动..."
 sleep 5
@@ -69,7 +73,7 @@ sleep 5
 if curl -sf http://127.0.0.1:8090/api/health >/dev/null 2>&1; then
     info "后端服务启动成功 ✓"
 else
-    warn "后端服务可能还在启动中，请稍后检查: docker compose logs"
+    warn "后端服务可能还在启动中，请稍后检查: $COMPOSE logs"
 fi
 
 # ---- Nginx 反代配置 ----
@@ -134,8 +138,8 @@ echo ""
 echo "访问地址: https://${DOMAIN}"
 echo ""
 echo "常用命令:"
-echo "  查看日志:   docker compose logs -f"
-echo "  重启服务:   docker compose restart"
-echo "  停止服务:   docker compose down"
-echo "  更新代码:   git pull && docker compose up -d --build"
+echo "  查看日志:   $COMPOSE logs -f"
+echo "  重启服务:   $COMPOSE restart"
+echo "  停止服务:   $COMPOSE down"
+echo "  更新代码:   git pull && $COMPOSE up -d --build"
 echo ""
