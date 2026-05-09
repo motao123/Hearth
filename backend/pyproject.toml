@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "python-jose[cryptography]>=3.3",
     "passlib[bcrypt]>=1.7",
+    "bcrypt>=3.1,<4.1",
     "python-multipart>=0.0.18",
     "apscheduler>=3.11",
     "httpx>=0.28",
