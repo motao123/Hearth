@@ -7,7 +7,7 @@
         <select v-model="filterPriority" class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none">
           <option value="">全部优先级</option>
           <option value="high">高优先级</option>
-          <option value="medium">中优先级</option>
+          <option value="normal">中优先级</option>
           <option value="low">低优先级</option>
         </select>
         <select v-model="filterAssignee" class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none">
@@ -148,7 +148,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
             <select v-model="form.priority" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none">
               <option value="low">低</option>
-              <option value="medium">中</option>
+              <option value="normal">中</option>
               <option value="high">高</option>
             </select>
           </div>
@@ -231,13 +231,13 @@ function formatDate(date) {
 }
 
 function priorityLabel(p) {
-  return { low: '低', medium: '中', high: '高' }[p] || '中'
+  return { low: '低', normal: '中', high: '高' }[p] || '中'
 }
 
 function priorityBadge(p) {
   return {
     low: 'bg-blue-50 text-blue-600',
-    medium: 'bg-yellow-50 text-yellow-600',
+    normal: 'bg-yellow-50 text-yellow-600',
     high: 'bg-red-50 text-red-600',
   }[p] || 'bg-yellow-50 text-yellow-600'
 }
@@ -259,10 +259,10 @@ function openEdit(task) {
   form.value = {
     title: task.title,
     description: task.description || '',
-    priority: task.priority || 'medium',
-    assignee_id: task.assignee_id || '',
+    priority: task.priority || 'normal',
+    assignee_id: task.assignee_id ?? null,
     due_date: task.due_date || '',
-    points: task.points || 0,
+    points: task.points ?? 0,
   }
 }
 
