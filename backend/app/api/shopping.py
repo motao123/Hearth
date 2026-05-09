@@ -25,7 +25,14 @@ class ItemUpdate(BaseModel):
 
 
 class ImportRequest(BaseModel):
-    items: list[str] = Field(max_length=100)
+    items: list[str] | None = None
+    ingredients: list[str] | None = None  # 前端字段名
+
+    def model_post_init(self, __context):
+        if self.items is None and self.ingredients is not None:
+            self.items = self.ingredients
+        if self.items is None:
+            self.items = []
 
 
 def _item_dict(item: ShoppingItem) -> dict:
