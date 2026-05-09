@@ -22,8 +22,12 @@ echo ""
 if ! command -v docker &>/dev/null; then
     error "Docker 未安装，请先安装: https://docs.docker.com/get-docker/"
 fi
-if ! docker compose version &>/dev/null; then
-    error "Docker Compose 未安装"
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE="docker-compose"
+else
+    error "Docker Compose 未安装，请先安装: curl -fsSL https://get.docker.com | bash"
 fi
 
 # ---- 创建工作目录 ----
@@ -67,7 +71,7 @@ EOF
 info ".env 已生成"
 
 # ---- 写入 docker-compose.yml ----
-cat > docker-compose.yml << 'COMPOSE'
+cat > docker-compose.yml << 'EOF'
 services:
   hearth:
     image: imotao/hearth:latest
@@ -83,12 +87,12 @@ services:
 volumes:
   hearth-data:
   hearth-backups:
-COMPOSE
+EOF
 
 # ---- 拉取镜像并启动 ----
 info "正在拉取 Docker 镜像（首次可能需要几分钟）..."
-docker compose pull
-docker compose up -d
+$COMPOSE pull
+$COMPOSE up -d
 
 info "等待服务启动..."
 sleep 5
@@ -97,7 +101,7 @@ sleep 5
 if curl -sf http://127.0.0.1:8090/api/health >/dev/null 2>&1; then
     info "服务启动成功 ✓"
 else
-    warn "服务可能还在启动中，请稍后检查: docker compose logs"
+    warn "服务可能还在启动中，请稍后检查: $COMPOSE logs"
 fi
 
 # ---- 输出结果 ----
@@ -158,8 +162,8 @@ fi
 
 echo ""
 echo "常用命令（在 $INSTALL_DIR 目录下执行）:"
-echo "  查看日志:   docker compose logs -f"
-echo "  重启服务:   docker compose restart"
-echo "  停止服务:   docker compose down"
-echo "  更新版本:   docker compose pull && docker compose up -d"
+echo "  查看日志:   $COMPOSE logs -f"
+echo "  重启服务:   $COMPOSE restart"
+echo "  停止服务:   $COMPOSE down"
+echo "  更新版本:   $COMPOSE pull && $COMPOSE up -d"
 echo ""
