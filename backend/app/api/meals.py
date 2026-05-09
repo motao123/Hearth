@@ -1,7 +1,7 @@
 """餐饮计划接口 - 餐计划管理、菜谱增删改查、导出配料到购物清单"""
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Literal
 from sqlalchemy import select, delete
@@ -16,10 +16,18 @@ router = APIRouter()
 
 class MealPlanItem(BaseModel):
     date: str = Field(max_length=10)
-    slot: Literal["breakfast", "lunch", "dinner"]
+    slot: Literal["breakfast", "lunch", "dinner"] | None = None
+    meal_type: Literal["breakfast", "lunch", "dinner"] | None = None  # 前端字段名
     recipe_id: int | None = None
     custom_meal: str | None = Field(default=None, max_length=200)
+    recipe_name: str | None = None  # 前端可能传
     servings: int = Field(default=4, ge=1)
+
+    def model_post_init(self, __context):
+        if self.slot is None and self.meal_type is not None:
+            self.slot = self.meal_type
+        if self.slot is None:
+            self.slot = "lunch"  # default
 
 
 class MealPlanSetRequest(BaseModel):
@@ -100,21 +108,25 @@ async def get_meal_plan(
 
 @router.put("/plan")
 async def set_meal_plan(
-    req: MealPlanSetRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    body: dict | list = Body(...),
 ):
-    """设置餐计划 - 先删除同日期同餐次的旧记录，再创建新记录"""
+    """设置餐计划 - 支持前端直接传单条或 {items: [...]} 或列表"""
     if not user.member:
         raise HTTPException(403, "当前用户未关联家庭成员")
     family_id = user.member.family_id
 
+    # 解析多种输入格式
+    raw = body if isinstance(body, list) else body.get("items", [body]) if isinstance(body, dict) else []
+    items = [MealPlanItem(**item) for item in raw]
+
     # 收集所有涉及的日期
-    dates = list({item.date for item in req.items})
+    dates = list({item.date for item in items})
 
     # 删除该日期范围内同日期同餐次的旧记录
     for date in dates:
-        slots = [item.slot for item in req.items if item.date == date]
+        slots = [item.slot for item in items if item.date == date]
         for slot in slots:
             await db.execute(
                 delete(MealPlan).where(
@@ -126,7 +138,7 @@ async def set_meal_plan(
 
     # 创建新记录
     created = []
-    for item in req.items:
+    for item in items:
         plan = MealPlan(
             family_id=family_id,
             date=item.date,
