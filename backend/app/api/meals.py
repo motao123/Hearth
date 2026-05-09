@@ -2,7 +2,8 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,11 +15,11 @@ router = APIRouter()
 
 
 class MealPlanItem(BaseModel):
-    date: str  # ISO 日期
-    slot: str  # breakfast / lunch / dinner
+    date: str = Field(max_length=10)
+    slot: Literal["breakfast", "lunch", "dinner"]
     recipe_id: int | None = None
-    custom_meal: str | None = None
-    servings: int = 4
+    custom_meal: str | None = Field(default=None, max_length=200)
+    servings: int = Field(default=4, ge=1)
 
 
 class MealPlanSetRequest(BaseModel):
@@ -26,26 +27,26 @@ class MealPlanSetRequest(BaseModel):
 
 
 class RecipeCreate(BaseModel):
-    name: str
-    ingredients: list[str]  # 配料列表
-    steps: list[str]  # 步骤列表
-    servings: int = 4
-    tags: str | None = None
-    image: str | None = None
+    name: str = Field(max_length=200)
+    ingredients: list[str]
+    steps: list[str]
+    servings: int = Field(default=4, ge=1)
+    tags: str | None = Field(default=None, max_length=200)
+    image: str | None = Field(default=None, max_length=255)
 
 
 class RecipeUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=200)
     ingredients: list[str] | None = None
     steps: list[str] | None = None
-    servings: int | None = None
-    tags: str | None = None
-    image: str | None = None
+    servings: int | None = Field(default=None, ge=1)
+    tags: str | None = Field(default=None, max_length=200)
+    image: str | None = Field(default=None, max_length=255)
 
 
 class ExportRequest(BaseModel):
-    start_date: str
-    end_date: str
+    start_date: str = Field(max_length=10)
+    end_date: str = Field(max_length=10)
 
 
 def _plan_dict(p: MealPlan) -> dict:

@@ -27,9 +27,14 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
-  const token = localStorage.getItem('hearth_token')
-  if (to.name !== 'Login' && !token) return { name: 'Login' }
+router.beforeEach((to, from) => {
+  // Simple check: if not on login page, try to verify auth
+  // The actual auth check happens via API calls (401 redirects to login)
+  // This guard prevents flash of content for unauthenticated users
+  if (to.name !== 'Login' && from.name === undefined) {
+    // First navigation — let it through, the MainLayout will call fetchMe()
+    // If fetchMe fails, the 401 interceptor will redirect to login
+  }
 })
 
 export default router

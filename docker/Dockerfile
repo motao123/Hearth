@@ -16,7 +16,11 @@ RUN pip install --no-cache-dir .
 COPY backend/ ./
 COPY --from=frontend-build /app/frontend/dist /app/public
 
-RUN mkdir -p /app/data /app/backups
+RUN mkdir -p /app/data /app/backups && \
+    useradd -m appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8090
 

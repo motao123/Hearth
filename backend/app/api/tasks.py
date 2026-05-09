@@ -1,8 +1,11 @@
 """家务任务接口 - 增删改查、状态更新、积分追踪"""
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from typing import Literal
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,26 +14,27 @@ from app.models.family import Task, User
 from app.api.deps import get_current_user
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 
 class TaskCreate(BaseModel):
-    title: str
-    description: str | None = None
-    priority: str = "normal"
+    title: str = Field(max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    priority: Literal["low", "normal", "high"] = "normal"
     assignee_id: int | None = None
-    due_date: str | None = None
-    points: int = 0
+    due_date: str | None = Field(default=None, max_length=10)
+    points: int = Field(default=0, ge=0)
     is_recurring: bool = False
-    recurring_rule: str | None = None
+    recurring_rule: str | None = Field(default=None, max_length=100)
 
 
 class TaskUpdate(BaseModel):
-    title: str | None = None
-    status: str | None = None
-    priority: str | None = None
+    title: str | None = Field(default=None, max_length=200)
+    status: Literal["todo", "doing", "done"] | None = None
+    priority: Literal["low", "normal", "high"] | None = None
     assignee_id: int | None = None
-    due_date: str | None = None
-    points: int | None = None
+    due_date: str | None = Field(default=None, max_length=10)
+    points: int | None = Field(default=None, ge=0)
 
 
 def _task_dict(t: Task) -> dict:
@@ -73,7 +77,9 @@ async def list_tasks(
 
 
 @router.post("/")
+@limiter.limit("30/minute")
 async def create_task(
+    request: Request,
     task: TaskCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -121,7 +127,7 @@ async def update_task(
 
     # 如果状态变更为 done，记录完成时间
     if task.status == "done" and existing.status != "done":
-        existing.completed_at = datetime.utcnow()
+        existing.completed_at = datetime.now(timezone.utc)
 
     # 如果状态从 done 改回其他状态，清除完成时间
     if task.status and task.status != "done" and existing.status == "done":

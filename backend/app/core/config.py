@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -8,8 +9,20 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Security
-    secret_key: str = "change-me-in-production"
+    secret_key: str = ""
     session_expire_hours: int = 72
+
+    @field_validator("secret_key")
+    @classmethod
+    def _validate_secret_key(cls, v: str) -> str:
+        if not v or v.startswith("change-me"):
+            raise ValueError(
+                "HEARTH_SECRET_KEY must be set to a secure random string. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        if len(v) < 32:
+            raise ValueError("HEARTH_SECRET_KEY must be at least 32 characters long")
+        return v
 
     # CORS - 逗号分隔的允许域名，生产环境必须设置
     cors_origins: str = "http://localhost:3000,http://localhost:8090"

@@ -1,33 +1,33 @@
 """家庭接口 - 成员管理、个人资料、积分排行"""
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.family import Member, Task, User
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 
 router = APIRouter()
 
 
 class MemberCreate(BaseModel):
-    name: str
-    role: str = "parent"
-    avatar: str | None = None
-    phone: str | None = None
-    email: str | None = None
-    birthday: str | None = None
+    name: str = Field(max_length=50)
+    role: str = Field(default="parent", max_length=20)
+    avatar: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=20)
+    email: str | None = Field(default=None, max_length=100)
+    birthday: str | None = Field(default=None, max_length=10)
     is_lunar: bool = False
 
 
 class MemberUpdate(BaseModel):
-    name: str | None = None
-    role: str | None = None
-    avatar: str | None = None
-    phone: str | None = None
-    email: str | None = None
-    birthday: str | None = None
+    name: str | None = Field(default=None, max_length=50)
+    role: str | None = Field(default=None, max_length=20)
+    avatar: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=20)
+    email: str | None = Field(default=None, max_length=100)
+    birthday: str | None = Field(default=None, max_length=10)
     is_lunar: bool | None = None
 
 
@@ -65,7 +65,7 @@ async def list_members(
 @router.post("/members")
 async def add_member(
     create: MemberCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """添加家庭成员"""
@@ -140,7 +140,7 @@ async def update_member(
 @router.delete("/members/{member_id}")
 async def delete_member(
     member_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """删除家庭成员"""

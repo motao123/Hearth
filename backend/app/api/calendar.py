@@ -2,7 +2,8 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,24 +16,24 @@ router = APIRouter()
 
 
 class EventCreate(BaseModel):
-    title: str
-    description: str | None = None
-    start_time: str
-    end_time: str | None = None
+    title: str = Field(max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    start_time: str = Field(max_length=20)
+    end_time: str | None = Field(default=None, max_length=20)
     all_day: bool = False
-    color: str | None = None
+    color: str | None = Field(default=None, max_length=7)
     member_id: int | None = None
-    source: str = "local"
-    source_id: str | None = None
+    source: Literal["local", "caldav", "ics"] = "local"
+    source_id: str | None = Field(default=None, max_length=255)
 
 
 class EventUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_time: str | None = None
-    end_time: str | None = None
+    title: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    start_time: str | None = Field(default=None, max_length=20)
+    end_time: str | None = Field(default=None, max_length=20)
     all_day: bool | None = None
-    color: str | None = None
+    color: str | None = Field(default=None, max_length=7)
     member_id: int | None = None
 
 

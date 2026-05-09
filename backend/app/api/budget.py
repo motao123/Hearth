@@ -4,7 +4,8 @@ import io
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,27 +17,27 @@ router = APIRouter()
 
 
 class EntryCreate(BaseModel):
-    type: str  # income / expense
-    amount: float
-    category: str
-    description: str | None = None
-    date: str  # ISO 日期
+    type: Literal["income", "expense"]
+    amount: float = Field(gt=0)
+    category: str = Field(max_length=50)
+    description: str | None = Field(default=None, max_length=200)
+    date: str = Field(max_length=10)
     member_id: int | None = None
     is_recurring: bool = False
     is_hongbao: bool = False
-    counterparty: str | None = None  # 对方（婚丧嫁娶）
+    counterparty: str | None = Field(default=None, max_length=100)
 
 
 class EntryUpdate(BaseModel):
-    type: str | None = None
-    amount: float | None = None
-    category: str | None = None
-    description: str | None = None
-    date: str | None = None
+    type: Literal["income", "expense"] | None = None
+    amount: float | None = Field(default=None, gt=0)
+    category: str | None = Field(default=None, max_length=50)
+    description: str | None = Field(default=None, max_length=200)
+    date: str | None = Field(default=None, max_length=10)
     member_id: int | None = None
     is_recurring: bool | None = None
     is_hongbao: bool | None = None
-    counterparty: str | None = None
+    counterparty: str | None = Field(default=None, max_length=100)
 
 
 def _entry_dict(e: BudgetEntry) -> dict:

@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
@@ -18,7 +19,11 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_token(user_id: int, hours: int | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=hours or settings.session_expire_hours)
-    return jwt.encode({"sub": str(user_id), "exp": expire}, settings.secret_key, algorithm="HS256")
+    return jwt.encode(
+        {"sub": str(user_id), "exp": expire, "jti": uuid.uuid4().hex},
+        settings.secret_key,
+        algorithm="HS256",
+    )
 
 
 def decode_token(token: str) -> dict | None:
@@ -27,7 +32,7 @@ def decode_token(token: str) -> dict | None:
             token,
             settings.secret_key,
             algorithms=["HS256"],
-            options={"require": ["sub", "exp"]},
+            options={"require": ["sub", "exp", "jti"]},
         )
     except jwt.JWTError:
         return None

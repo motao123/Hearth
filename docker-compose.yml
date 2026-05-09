@@ -5,7 +5,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: hearth
     ports:
-      - "8090:8090"
+      - "127.0.0.1:8090:8090"
     volumes:
       - hearth-data:/app/data
       - hearth-backups:/app/backups

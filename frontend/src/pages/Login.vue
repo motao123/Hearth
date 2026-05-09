@@ -85,9 +85,9 @@
               v-model="registerForm.password"
               type="password"
               required
-              minlength="6"
+              minlength="8"
               class="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-              placeholder="请输入密码（至少6位）"
+              placeholder="请输入密码（至少8位，含字母和数字）"
             />
           </div>
           <button

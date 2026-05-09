@@ -3,19 +3,23 @@ import os
 import uuid
 from pathlib import Path
 
+import filetype
 from fastapi import APIRouter, Depends, HTTPException, UploadFile as FastAPIUploadFile
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.family import User, Upload
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 ALLOWED_MIME_TYPES = {
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    "image/jpeg", "image/png", "image/gif", "image/webp",
     "application/pdf",
     "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -23,9 +27,16 @@ ALLOWED_MIME_TYPES = {
 }
 
 ALLOWED_EXTENSIONS = {
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp",
     ".pdf", ".doc", ".docx", ".xls", ".xlsx",
     ".txt", ".csv", ".md",
+}
+
+# filetype library returns these MIME types; map to our canonical names
+MIME_ALIASES = {
+    "image/jpg": "image/jpeg",
+    "application/zip": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # docx is a zip
+    "application/vnd.oasis.opendocument.spreadsheet": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
 
@@ -49,7 +60,6 @@ def _upload_dict(u: Upload) -> dict:
         "original_name": u.original_name,
         "mime_type": u.mime_type,
         "size": u.size,
-        "path": u.path,
         "uploaded_by": u.uploaded_by,
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
@@ -73,12 +83,14 @@ async def list_uploads(
 
 
 @router.post("/")
+@limiter.limit("10/minute")
 async def upload_file(
+    request: FastAPIUploadFile,
     file: FastAPIUploadFile,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """上传文件（文档/头像）"""
+    """上传文件（文档/头像）— 流式读取，边读边校验大小"""
     if not user.member:
         raise HTTPException(403, "当前用户未关联家庭成员")
     family_id = user.member.family_id
@@ -88,9 +100,32 @@ async def upload_file(
         raise HTTPException(400, f"不支持的文件类型: {ext or file.content_type}")
 
     max_bytes = settings.upload_max_size_mb * 1024 * 1024
-    contents = await file.read()
-    if len(contents) > max_bytes:
-        raise HTTPException(400, f"文件大小不能超过 {settings.upload_max_size_mb}MB")
+    chunks = []
+    total_size = 0
+
+    # Stream-read with size checking
+    while True:
+        chunk = await file.read(65536)  # 64KB chunks
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > max_bytes:
+            raise HTTPException(400, f"文件大小不能超过 {settings.upload_max_size_mb}MB")
+        chunks.append(chunk)
+
+    contents = b"".join(chunks)
+
+    if total_size == 0:
+        raise HTTPException(400, "文件内容为空")
+
+    # Verify actual file type using magic bytes
+    kind = filetype.guess(contents)
+    if kind is not None:
+        detected_mime = MIME_ALIASES.get(kind.mime, kind.mime)
+        # For office files (which are ZIP-based), allow through if extension matched
+        if detected_mime not in ALLOWED_MIME_TYPES and ext not in {".docx", ".xlsx", ".doc", ".xls"}:
+            raise HTTPException(400, f"文件实际类型({detected_mime})与声明类型不匹配")
+    # Text files won't be detected by filetype — that's OK, we already checked extension
 
     safe_name = _safe_filename(file.filename or "unknown")
     upload_dir = _get_upload_dir(family_id)
@@ -102,7 +137,7 @@ async def upload_file(
         filename=safe_name,
         original_name=file.filename or "unknown",
         mime_type=file.content_type or "application/octet-stream",
-        size=len(contents),
+        size=total_size,
         path=str(file_path),
         uploaded_by=user.member.id,
     )
@@ -115,7 +150,7 @@ async def upload_file(
 @router.delete("/{upload_id}")
 async def delete_upload(
     upload_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """删除上传文件"""

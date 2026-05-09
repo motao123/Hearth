@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,7 +11,7 @@ class Family(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     members: Mapped[list["Member"]] = relationship(back_populates="family")
 
@@ -40,7 +40,9 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     member: Mapped["Member"] = relationship()
 
@@ -59,7 +61,7 @@ class Task(Base):
     points: Mapped[int] = mapped_column(Integer, default=0)  # 家务积分
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
     recurring_rule: Mapped[str] = mapped_column(String(100), nullable=True)  # rrule
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
 
@@ -73,7 +75,7 @@ class ShoppingItem(Base):
     quantity: Mapped[str] = mapped_column(String(30), nullable=True)
     checked: Mapped[bool] = mapped_column(Boolean, default=False)
     added_by: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class MealPlan(Base):
@@ -99,7 +101,7 @@ class Recipe(Base):
     servings: Mapped[int] = mapped_column(Integer, default=4)
     tags: Mapped[str] = mapped_column(String(200), nullable=True)
     image: Mapped[str] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class BudgetEntry(Base):
@@ -116,7 +118,7 @@ class BudgetEntry(Base):
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
     is_hongbao: Mapped[bool] = mapped_column(Boolean, default=False)  # 红包/人情往来
     counterparty: Mapped[str] = mapped_column(String(100), nullable=True)  # 对方（婚丧嫁娶）
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class CalendarEvent(Base):
@@ -144,8 +146,8 @@ class Note(Base):
     content: Mapped[str] = mapped_column(Text, default="")
     color: Mapped[str] = mapped_column(String(7), default="#FFE066")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Upload(Base):
@@ -159,4 +161,13 @@ class Upload(Base):
     size: Mapped[int] = mapped_column(Integer)  # bytes
     path: Mapped[str] = mapped_column(String(500))
     uploaded_by: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    jti: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

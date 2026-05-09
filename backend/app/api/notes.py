@@ -1,8 +1,10 @@
 """便签接口 - 增删改查、颜色更新、置顶切换"""
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,18 +13,19 @@ from app.models.family import Note, User
 from app.api.deps import get_current_user
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 
 class NoteCreate(BaseModel):
-    title: str | None = None
-    content: str = ""
-    color: str = "#FFE066"
+    title: str | None = Field(default=None, max_length=200)
+    content: str = Field(default="", max_length=10000)
+    color: str = Field(default="#FFE066", max_length=7)
 
 
 class NoteUpdate(BaseModel):
-    title: str | None = None
-    content: str | None = None
-    color: str | None = None
+    title: str | None = Field(default=None, max_length=200)
+    content: str | None = Field(default=None, max_length=10000)
+    color: str | None = Field(default=None, max_length=7)
     pinned: bool | None = None
 
 
@@ -59,7 +62,9 @@ async def list_notes(
 
 
 @router.post("/")
+@limiter.limit("30/minute")
 async def create_note(
+    request: Request,
     note: NoteCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -105,7 +110,7 @@ async def update_note(
         setattr(existing, field, value)
 
     # 自动更新 updated_at 时间戳
-    existing.updated_at = datetime.utcnow()
+    existing.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(existing)

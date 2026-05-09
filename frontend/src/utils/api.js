@@ -3,19 +3,13 @@ import axios from 'axios'
 const api = axios.create({
   baseURL: '',
   timeout: 10000,
-})
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('hearth_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
+  withCredentials: true,
 })
 
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('hearth_token')
       window.location.href = '/login'
     }
     return Promise.reject(err)

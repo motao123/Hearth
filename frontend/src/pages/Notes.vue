@@ -116,6 +116,38 @@ import Modal from '@/components/Modal.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
+function sanitizeHtml(html) {
+  const div = document.createElement('div')
+  div.textContent = html
+  return div.innerHTML
+}
+
+const SAFE_TAGS = { strong: [], em: [], h2: ['class'], h3: ['class'], h4: ['class'], li: ['class'], br: [] }
+
+function sanitizeRenderedHtml(html) {
+  const temp = document.createElement('div')
+  temp.innerHTML = html
+  const walk = document.createTreeWalker(temp, NodeFilter.SHOW_ELEMENT)
+  const toRemove = []
+  let node
+  while ((node = walk.nextNode())) {
+    if (!SAFE_TAGS[node.tagName.toLowerCase()]) {
+      toRemove.push(node)
+    } else {
+      const allowed = SAFE_TAGS[node.tagName.toLowerCase()]
+      for (const attr of [...node.attributes]) {
+        if (!allowed.includes(attr.name)) {
+          node.removeAttribute(attr.name)
+        }
+      }
+    }
+  }
+  for (const n of toRemove) {
+    n.replaceWith(...n.childNodes)
+  }
+  return temp.innerHTML
+}
+
 const notesStore = useNotesStore()
 
 const showModal = ref(false)
@@ -160,7 +192,9 @@ function formatDate(date) {
 
 function renderMarkdown(text) {
   if (!text) return ''
-  let html = text
+  // Sanitize input first to prevent injection in regex replacement
+  const escaped = sanitizeHtml(text)
+  let html = escaped
     // Bold
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     // Italic
@@ -173,7 +207,7 @@ function renderMarkdown(text) {
     .replace(/^- (.*$)/gm, '<li class="ml-4">$1</li>')
     // Line breaks
     .replace(/\n/g, '<br>')
-  return html
+  return sanitizeRenderedHtml(html)
 }
 
 function openAdd() {

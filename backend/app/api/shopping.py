@@ -1,6 +1,6 @@
 """购物清单接口 - 增删改查、勾选、清空已购、导入配料"""
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,20 +12,20 @@ router = APIRouter()
 
 
 class ItemCreate(BaseModel):
-    name: str
-    aisle: str | None = None
-    quantity: str | None = None
+    name: str = Field(max_length=100)
+    aisle: str | None = Field(default=None, max_length=50)
+    quantity: str | None = Field(default=None, max_length=30)
 
 
 class ItemUpdate(BaseModel):
-    name: str | None = None
-    aisle: str | None = None
-    quantity: str | None = None
+    name: str | None = Field(default=None, max_length=100)
+    aisle: str | None = Field(default=None, max_length=50)
+    quantity: str | None = Field(default=None, max_length=30)
     checked: bool | None = None
 
 
 class ImportRequest(BaseModel):
-    items: list[str]  # 配料名称列表
+    items: list[str] = Field(max_length=100)
 
 
 def _item_dict(item: ShoppingItem) -> dict:
