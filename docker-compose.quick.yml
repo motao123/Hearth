@@ -1,6 +1,9 @@
 # Hearth 快速部署 — 直接拉取 Docker Hub 镜像，无需本地构建
-# 用法: curl -O docker-compose.yml https://raw.githubusercontent.com/motao123/Hearth/main/docker-compose.quick.yml
-#       然后编辑 .env 填入 HEARTH_SECRET_KEY，再 docker compose up -d
+# 用法:
+#   curl -O https://raw.githubusercontent.com/motao123/Hearth/main/docker-compose.quick.yml
+#   mv docker-compose.quick.yml docker-compose.yml
+#   echo "HEARTH_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" > .env
+#   docker compose up -d
 #
 # 或使用一键脚本: bash <(curl -s https://raw.githubusercontent.com/motao123/Hearth/main/scripts/quick-start.sh)
 

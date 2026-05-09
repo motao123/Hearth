@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
+import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'url'
 
 export default defineConfig({
@@ -10,6 +11,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    tailwindcss(),
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -20,10 +22,11 @@ export default defineConfig({
         theme_color: '#E8590C',
         background_color: '#FFF5EB',
         display: 'standalone',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ],
+        // TODO: 替换为实际图标文件，放入 frontend/public/ 目录
+        // icons: [
+        //   { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        //   { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        // ],
       },
     }),
   ],

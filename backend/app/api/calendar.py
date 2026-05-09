@@ -169,8 +169,8 @@ async def chinese_holidays(
 @router.get("/lunar")
 async def lunar_calendar(
     solar_date: str,
-    user: User = Depends(get_current_user()),
-    db: AsyncSession = Depends(get_db()),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """公历转农历（支持 2024-2030 年）"""
     try:

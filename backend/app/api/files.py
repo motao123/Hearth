@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 
 import filetype
-from fastapi import APIRouter, Depends, HTTPException, UploadFile as FastAPIUploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile as FastAPIUploadFile
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -85,8 +85,8 @@ async def list_uploads(
 @router.post("/")
 @limiter.limit("10/minute")
 async def upload_file(
-    request: FastAPIUploadFile,
     file: FastAPIUploadFile,
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

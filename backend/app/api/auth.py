@@ -8,6 +8,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
+from app.core.database import get_db
 from app.core.security import create_token, decode_token, hash_password, verify_password
 from app.models.family import Family, Member, User, RevokedToken
 from app.api.deps import get_current_user

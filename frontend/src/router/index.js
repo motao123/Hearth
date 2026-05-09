@@ -20,6 +20,7 @@ const routes = [
       { path: 'family', name: 'Family', component: () => import('@/pages/Family.vue') },
     ],
   },
+  { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
 const router = createRouter({

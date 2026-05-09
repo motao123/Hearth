@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -71,5 +72,6 @@ app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])
 
-# Serve frontend in production
-app.mount("/", StaticFiles(directory="public", html=True), name="frontend")
+# Serve frontend in production (only if public/ directory exists)
+if os.path.isdir("public"):
+    app.mount("/", StaticFiles(directory="public", html=True), name="frontend")

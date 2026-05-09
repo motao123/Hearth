@@ -1,6 +1,4 @@
 """认证依赖注入 - 获取当前登录用户"""
-from datetime import datetime, timezone
-
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
 from sqlalchemy import select
