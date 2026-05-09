@@ -15,10 +15,24 @@ from app.utils.lunar import solar_to_lunar, get_major_lunar_festivals
 router = APIRouter()
 
 
+COLOR_MAP = {"default": None, "blue": "#3B82F6", "green": "#22C55E", "purple": "#8B5CF6", "red": "#EF4444"}
+
+
+def _normalize_event(data: dict) -> dict:
+    if not data.get("start_time") and data.get("date"):
+        t = data.get("time", "00:00")
+        data["start_time"] = f'{data["date"]}T{t}:00'
+    if "color" in data and data["color"] in COLOR_MAP:
+        data["color"] = COLOR_MAP[data["color"]]
+    return data
+
+
 class EventCreate(BaseModel):
     title: str = Field(max_length=200)
     description: str | None = Field(default=None, max_length=2000)
-    start_time: str = Field(max_length=20)
+    start_time: str | None = None
+    date: str | None = None
+    time: str | None = None
     end_time: str | None = Field(default=None, max_length=20)
     all_day: bool = False
     color: str | None = Field(default=None, max_length=7)
@@ -26,15 +40,25 @@ class EventCreate(BaseModel):
     source: Literal["local", "caldav", "ics"] = "local"
     source_id: str | None = Field(default=None, max_length=255)
 
+    def model_post_init(self, __context):
+        _normalize_event(self.__dict__)
+        if not self.start_time:
+            raise ValueError("start_time is required")
+
 
 class EventUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     start_time: str | None = Field(default=None, max_length=20)
+    date: str | None = None
+    time: str | None = None
     end_time: str | None = Field(default=None, max_length=20)
     all_day: bool | None = None
     color: str | None = Field(default=None, max_length=7)
     member_id: int | None = None
+
+    def model_post_init(self, __context):
+        _normalize_event({k: v for k, v in self.__dict__.items() if v is not None})
 
 
 def _event_dict(e: CalendarEvent) -> dict:
