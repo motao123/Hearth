@@ -55,13 +55,31 @@ Hearth 是一个自部署的家庭生活管理 Web 应用，把日常家务事�
 
 ## 快速开始
 
+### Docker 一键部署（推荐）
+
 ```bash
-git clone https://github.com/yourname/hearth.git && cd hearth
-cp .env.example .env
+bash <(curl -s https://raw.githubusercontent.com/motao123/Hearth/main/scripts/quick-start.sh)
+```
+
+或手动拉取镜像：
+
+```bash
+mkdir -p /opt/hearth && cd /opt/hearth
+curl -O https://raw.githubusercontent.com/motao123/Hearth/main/docker-compose.quick.yml
+mv docker-compose.quick.yml docker-compose.yml
+
+# 生成密钥并配置
+echo "HEARTH_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" > .env
+echo "HEARTH_DEBUG=false" >> .env
+
 docker compose up -d
 ```
 
-打开 `http://localhost:8090`，创建管理员账号即可使用。
+打开 `http://localhost:8090`，创建账号即可使用。
+
+> 镜像地址: `docker pull motao123/hearth:latest`
+
+### 从源码运行
 
 ## 本地开发
 
