@@ -16,14 +16,23 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
   }
 
+  function _mapColor(c) {
+    const m = { default: null, blue: '#3B82F6', green: '#22C55E', purple: '#8B5CF6', red: '#EF4444' }
+    return m[c] ?? c
+  }
+  function _toPayload(data) {
+    const start = data.date && data.time ? `${data.date}T${data.time}:00` : data.start_time || data.date
+    return { ...data, start_time: start, color: _mapColor(data.color) }
+  }
+
   async function createEvent(data) {
-    const { data: event } = await api.post('/api/calendar/events', data)
+    const { data: event } = await api.post('/api/calendar/events', _toPayload(data))
     events.value.push(event)
     return event
   }
 
   async function updateEvent(id, data) {
-    const { data: updated } = await api.patch(`/api/calendar/events/${id}`, data)
+    const { data: updated } = await api.patch(`/api/calendar/events/${id}`, _toPayload(data))
     const idx = events.value.findIndex((e) => e.id === id)
     if (idx !== -1) events.value[idx] = updated
     return updated

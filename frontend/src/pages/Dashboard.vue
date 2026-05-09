@@ -183,7 +183,7 @@ const showAddItem = ref(false)
 const taskSaving = ref(false)
 const itemSaving = ref(false)
 
-const taskForm = ref({ title: '', description: '', priority: 'medium', points: 0, due_date: '' })
+const taskForm = ref({ title: '', description: '', priority: 'normal', points: 0, due_date: '' })
 const itemForm = ref({ name: '', aisle: '', quantity: '' })
 
 const pendingTasks = computed(() => tasksStore.tasks.filter((t) => t.status !== 'done').length)
@@ -233,7 +233,7 @@ async function handleAddTask() {
   try {
     await tasksStore.createTask({ ...taskForm.value, status: 'todo' })
     showAddTask.value = false
-    taskForm.value = { title: '', description: '', priority: 'medium', points: 0, due_date: '' }
+    taskForm.value = { title: '', description: '', priority: 'normal', points: 0, due_date: '' }
   } catch {
     // error handled by store
   } finally {

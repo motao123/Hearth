@@ -208,8 +208,8 @@ let pendingConfirmAction = null
 const form = ref({
   title: '',
   description: '',
-  priority: 'medium',
-  assignee_id: '',
+  priority: 'normal',
+  assignee_id: null,
   due_date: '',
   points: 0,
 })
@@ -269,7 +269,7 @@ function openEdit(task) {
 function closeModal() {
   showAddModal.value = false
   editingTask.value = null
-  form.value = { title: '', description: '', priority: 'medium', assignee_id: '', due_date: '', points: 0 }
+  form.value = { title: '', description: '', priority: 'normal', assignee_id: null, due_date: '', points: 0 }
 }
 
 async function handleSave() {

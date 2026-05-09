@@ -32,14 +32,22 @@ export const useMealsStore = defineStore('meals', () => {
     }
   }
 
+  function _toRecipePayload(data) {
+    return {
+      name: data.name,
+      ingredients: typeof data.ingredients === 'string' ? data.ingredients.split('\n').filter(Boolean) : data.ingredients,
+      steps: typeof data.instructions === 'string' ? data.instructions.split('\n').filter(Boolean) : data.steps || [],
+    }
+  }
+
   async function createRecipe(data) {
-    const { data: recipe } = await api.post('/api/meals/recipes', data)
+    const { data: recipe } = await api.post('/api/meals/recipes', _toRecipePayload(data))
     recipes.value.push(recipe)
     return recipe
   }
 
   async function updateRecipe(id, data) {
-    const { data: updated } = await api.patch(`/api/meals/recipes/${id}`, data)
+    const { data: updated } = await api.patch(`/api/meals/recipes/${id}`, _toRecipePayload(data))
     const idx = recipes.value.findIndex((r) => r.id === id)
     if (idx !== -1) recipes.value[idx] = updated
     return updated
