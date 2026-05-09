@@ -41,7 +41,7 @@ def _item_dict(item: ShoppingItem) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 async def list_items(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -60,7 +60,7 @@ async def list_items(
     return [_item_dict(i) for i in items]
 
 
-@router.post("/")
+@router.post("")
 async def add_item(
     item: ItemCreate,
     user: User = Depends(get_current_user),

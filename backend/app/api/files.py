@@ -65,7 +65,7 @@ def _upload_dict(u: Upload) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 async def list_uploads(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -82,7 +82,7 @@ async def list_uploads(
     return [_upload_dict(u) for u in uploads]
 
 
-@router.post("/")
+@router.post("")
 @limiter.limit("10/minute")
 async def upload_file(
     file: FastAPIUploadFile,

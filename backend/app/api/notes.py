@@ -42,7 +42,7 @@ def _note_dict(n: Note) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 async def list_notes(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -61,7 +61,7 @@ async def list_notes(
     return [_note_dict(n) for n in notes]
 
 
-@router.post("/")
+@router.post("")
 @limiter.limit("30/minute")
 async def create_note(
     request: Request,

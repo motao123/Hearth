@@ -55,7 +55,7 @@ def _task_dict(t: Task) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 async def list_tasks(
     status: str | None = None,
     user: User = Depends(get_current_user),
@@ -76,7 +76,7 @@ async def list_tasks(
     return [_task_dict(t) for t in tasks]
 
 
-@router.post("/")
+@router.post("")
 @limiter.limit("30/minute")
 async def create_task(
     request: Request,
