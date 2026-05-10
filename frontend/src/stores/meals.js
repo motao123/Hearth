@@ -11,7 +11,12 @@ export const useMealsStore = defineStore('meals', () => {
     loading.value = true
     try {
       const { data } = await api.get('/api/meals/plan', { params: { start_date: startDate, end_date: endDate } })
-      mealPlan.value = data
+      const plan = {}
+      for (const item of data) {
+        if (!plan[item.date]) plan[item.date] = {}
+        plan[item.date][item.slot] = item
+      }
+      mealPlan.value = plan
     } finally {
       loading.value = false
     }

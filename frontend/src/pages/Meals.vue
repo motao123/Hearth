@@ -264,8 +264,8 @@ function openEditRecipe(recipe) {
   editingRecipe.value = recipe
   recipeForm.value = {
     name: recipe.name || '',
-    ingredients: recipe.ingredients || '',
-    instructions: recipe.instructions || '',
+    ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients.join('\n') : (recipe.ingredients || ''),
+    instructions: Array.isArray(recipe.steps) ? recipe.steps.join('\n') : (recipe.steps || ''),
     meal_type: recipe.meal_type || 'lunch',
   }
   showRecipeModal.value = true
