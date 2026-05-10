@@ -201,9 +201,11 @@ async def set_meal_plan(
                 )
             )
 
-    # 创建新记录
+    # 创建新记录（跳过空计划，即 recipe_id 和 custom_meal 均为空的清除请求）
     created = []
     for item in items:
+        if item.recipe_id is None and not item.custom_meal:
+            continue
         plan = MealPlan(
             family_id=family_id,
             date=item.date,
