@@ -126,12 +126,14 @@ async def login(request: Request, response: Response, req: LoginRequest, db: Asy
         raise HTTPException(401, "用户名或密码错误")
 
     # Check account lockout
-    if user.locked_until and user.locked_until > datetime.now(timezone.utc):
-        remaining = (user.locked_until - datetime.now(timezone.utc)).seconds // 60
+    now = datetime.now(timezone.utc)
+    locked_until = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until else None
+    if locked_until and locked_until > now:
+        remaining = (locked_until - now).seconds // 60
         raise HTTPException(403, f"账户已锁定，请{remaining}分钟后重试")
 
     # Clear expired lockout
-    if user.locked_until and user.locked_until <= datetime.now(timezone.utc):
+    if locked_until and locked_until <= now:
         user.failed_login_attempts = 0
         user.locked_until = None
 
@@ -139,7 +141,7 @@ async def login(request: Request, response: Response, req: LoginRequest, db: Asy
         # Increment failed attempts
         user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
         if user.failed_login_attempts >= 5:
-            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            user.locked_until = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
         await db.commit()
         raise HTTPException(401, "用户名或密码错误")
 
