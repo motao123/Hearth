@@ -2,7 +2,7 @@
 import json
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.family import MealPlan, Recipe, ShoppingItem, User
 from app.api.deps import get_current_user
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 
@@ -23,6 +24,11 @@ class MealPlanItem(BaseModel):
     recipe_name: str | None = None  # 前端可能传
     servings: int = Field(default=4, ge=1)
 
+    @field_validator("custom_meal", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
     def model_post_init(self, __context):
         if self.slot is None and self.meal_type is not None:
             self.slot = self.meal_type
@@ -34,36 +40,88 @@ class MealPlanSetRequest(BaseModel):
     items: list[MealPlanItem]
 
 
+def _normalize_recipe_field(v: list[str] | str | None) -> list[str] | None:
+    """Convert newline-separated string to list, or pass through list/None."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        return [line.strip() for line in v.split('\n') if line.strip()]
+    return [i.strip() for i in v if i.strip()]
+
+
 class RecipeCreate(BaseModel):
     name: str = Field(max_length=200)
-    ingredients: list[str]
-    steps: list[str]
+    ingredients: list[str] | str
+    steps: list[str] | str
     servings: int = Field(default=4, ge=1)
+    cooking_time: int | None = Field(default=None, ge=0)
+    difficulty: str | None = Field(default=None, max_length=20)
+    description: str | None = Field(default=None, max_length=2000)
     tags: str | None = Field(default=None, max_length=200)
     image: str | None = Field(default=None, max_length=255)
+
+    @field_validator('ingredients', mode='before')
+    @classmethod
+    def normalize_ingredients(cls, v):
+        return _normalize_recipe_field(v)
+
+    @field_validator('steps', mode='before')
+    @classmethod
+    def normalize_steps(cls, v):
+        return _normalize_recipe_field(v)
+
+    @field_validator("name", "description", "tags", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 class RecipeUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=200)
-    ingredients: list[str] | None = None
-    steps: list[str] | None = None
+    ingredients: list[str] | str | None = None
+    steps: list[str] | str | None = None
     servings: int | None = Field(default=None, ge=1)
+    cooking_time: int | None = Field(default=None, ge=0)
+    difficulty: str | None = Field(default=None, max_length=20)
+    description: str | None = Field(default=None, max_length=2000)
     tags: str | None = Field(default=None, max_length=200)
     image: str | None = Field(default=None, max_length=255)
 
+    @field_validator('ingredients', mode='before')
+    @classmethod
+    def normalize_ingredients(cls, v):
+        return _normalize_recipe_field(v)
+
+    @field_validator('steps', mode='before')
+    @classmethod
+    def normalize_steps(cls, v):
+        return _normalize_recipe_field(v)
+
+    @field_validator("name", "description", "tags", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
 
 class ExportRequest(BaseModel):
-    start_date: str = Field(max_length=10)
-    end_date: str = Field(max_length=10)
+    start_date: str | None = Field(default=None, max_length=10)
+    end_date: str | None = Field(default=None, max_length=10)
+    date: str | None = Field(default=None, max_length=10)  # frontend compat
+
+    def model_post_init(self, __context):
+        if self.date and not self.start_date:
+            self.start_date = self.date
+            self.end_date = self.date
 
 
-def _plan_dict(p: MealPlan) -> dict:
+def _plan_dict(p: MealPlan, recipe_name: str | None = None) -> dict:
     return {
         "id": p.id,
         "family_id": p.family_id,
         "date": p.date,
         "slot": p.slot,
         "recipe_id": p.recipe_id,
+        "recipe_name": recipe_name,
         "custom_meal": p.custom_meal,
         "servings": p.servings,
     }
@@ -77,6 +135,9 @@ def _recipe_dict(r: Recipe) -> dict:
         "ingredients": json.loads(r.ingredients) if r.ingredients else [],
         "steps": json.loads(r.steps) if r.steps else [],
         "servings": r.servings,
+        "cooking_time": r.cooking_time,
+        "difficulty": r.difficulty,
+        "description": r.description,
         "tags": r.tags,
         "image": r.image,
         "created_at": r.created_at.isoformat() if r.created_at else None,
@@ -96,17 +157,21 @@ async def get_meal_plan(
     family_id = user.member.family_id
 
     result = await db.execute(
-        select(MealPlan).where(
+        select(MealPlan, Recipe.name)
+        .outerjoin(Recipe, MealPlan.recipe_id == Recipe.id)
+        .where(
             MealPlan.family_id == family_id,
             MealPlan.date >= start_date,
             MealPlan.date <= end_date,
-        ).order_by(MealPlan.date, MealPlan.slot)
+        )
+        .order_by(MealPlan.date, MealPlan.slot)
     )
-    plans = result.scalars().all()
-    return [_plan_dict(p) for p in plans]
+    rows = result.all()
+    return [_plan_dict(p, recipe_name=name) for p, name in rows]
 
 
 @router.put("/plan")
+@router.post("/plan")
 async def set_meal_plan(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -188,6 +253,9 @@ async def create_recipe(
         ingredients=json.dumps(recipe.ingredients, ensure_ascii=False),
         steps=json.dumps(recipe.steps, ensure_ascii=False),
         servings=recipe.servings,
+        cooking_time=recipe.cooking_time,
+        difficulty=recipe.difficulty,
+        description=recipe.description,
         tags=recipe.tags,
         image=recipe.image,
     )

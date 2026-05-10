@@ -17,7 +17,8 @@ export const useShoppingStore = defineStore('shopping', () => {
   }
 
   async function addItem(data) {
-    const { data: item } = await api.post('/api/shopping', data)
+    const payload = { ...data, quantity: data.quantity != null ? String(data.quantity) : undefined }
+    const { data: item } = await api.post('/api/shopping', payload)
     items.value.push(item)
     return item
   }

@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -12,13 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.family import Task, User
 from app.api.deps import get_current_user
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 
 class TaskCreate(BaseModel):
-    title: str = Field(max_length=200)
+    title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     priority: Literal["low", "normal", "high"] = "normal"
     assignee_id: int | None = None
@@ -27,14 +28,24 @@ class TaskCreate(BaseModel):
     is_recurring: bool = False
     recurring_rule: str | None = Field(default=None, max_length=100)
 
+    @field_validator("title", "description", "recurring_rule", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
 
 class TaskUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
-    status: Literal["todo", "doing", "done"] | None = None
+    status: Literal["todo", "in_progress", "done"] | None = None
     priority: Literal["low", "normal", "high"] | None = None
     assignee_id: int | None = None
     due_date: str | None = Field(default=None, max_length=10)
     points: int | None = Field(default=None, ge=0)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 def _task_dict(t: Task) -> dict:

@@ -1,12 +1,13 @@
 """购物清单接口 - 增删改查、勾选、清空已购、导入配料"""
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.family import ShoppingItem, User
 from app.api.deps import get_current_user
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 
@@ -16,12 +17,22 @@ class ItemCreate(BaseModel):
     aisle: str | None = Field(default=None, max_length=50)
     quantity: str | None = Field(default=None, max_length=30)
 
+    @field_validator("name", "aisle", "quantity", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
 
 class ItemUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=100)
     aisle: str | None = Field(default=None, max_length=50)
     quantity: str | None = Field(default=None, max_length=30)
     checked: bool | None = None
+
+    @field_validator("name", "aisle", "quantity", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 class ImportRequest(BaseModel):

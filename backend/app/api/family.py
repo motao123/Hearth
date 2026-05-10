@@ -1,34 +1,46 @@
 """家庭接口 - 成员管理、个人资料、积分排行"""
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.family import Member, Task, User
+from typing import Literal
 from app.api.deps import get_current_user, require_admin
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 
 
 class MemberCreate(BaseModel):
     name: str = Field(max_length=50)
-    role: str = Field(default="parent", max_length=20)
+    role: Literal["admin", "member", "child"] = "member"
     avatar: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=100)
     birthday: str | None = Field(default=None, max_length=10)
     is_lunar: bool = False
 
+    @field_validator("name", "avatar", "phone", "email", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
 
 class MemberUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=50)
-    role: str | None = Field(default=None, max_length=20)
+    role: Literal["admin", "member", "child"] | None = None
     avatar: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=100)
     birthday: str | None = Field(default=None, max_length=10)
     is_lunar: bool | None = None
+
+    @field_validator("name", "avatar", "phone", "email", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 def _member_dict(m: Member) -> dict:
@@ -113,7 +125,7 @@ async def get_member(
 async def update_member(
     member_id: int,
     update: MemberUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """更新成员资料"""

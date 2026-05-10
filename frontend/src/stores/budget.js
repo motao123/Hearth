@@ -25,7 +25,13 @@ export const useBudgetStore = defineStore('budget', () => {
 
   async function fetchSummary(year, month) {
     const { data } = await api.get('/api/budget/summary', { params: { year, month } })
-    summary.value = data
+    summary.value = {
+      income: data.total_income || 0,
+      expense: data.total_expense || 0,
+      balance: data.balance || 0,
+      incomeByCategory: data.income_by_category || [],
+      expenseByCategory: data.expense_by_category || [],
+    }
   }
 
   async function updateEntry(id, data) {

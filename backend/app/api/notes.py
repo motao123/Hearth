@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.family import Note, User
 from app.api.deps import get_current_user
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
@@ -18,8 +19,13 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 class NoteCreate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
-    content: str = Field(default="", max_length=10000)
+    content: str = Field(default="", min_length=1, max_length=10000)
     color: str = Field(default="#FFE066", max_length=7)
+
+    @field_validator("title", "content", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 class NoteUpdate(BaseModel):
@@ -27,6 +33,11 @@ class NoteUpdate(BaseModel):
     content: str | None = Field(default=None, max_length=10000)
     color: str | None = Field(default=None, max_length=7)
     pinned: bool | None = None
+
+    @field_validator("title", "content", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 def _note_dict(n: Note) -> dict:

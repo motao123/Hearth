@@ -57,7 +57,7 @@
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-semibold text-gray-900">食谱库</h3>
           <div class="flex items-center gap-2">
-            <button @click="showAddRecipe = true" class="text-sm text-orange-600 hover:text-orange-700 font-medium">+ 添加食谱</button>
+            <button @click="showRecipeModal = true" class="text-sm text-orange-600 hover:text-orange-700 font-medium">+ 添加食谱</button>
             <button @click="showRecipePanel = false" class="p-1 hover:bg-gray-100 rounded-lg">
               <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -75,7 +75,7 @@
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0 cursor-pointer" @click="assignRecipe(recipe)">
                 <div class="font-medium text-sm text-gray-900">{{ recipe.name }}</div>
-                <div v-if="recipe.ingredients" class="text-xs text-gray-400 mt-1 line-clamp-2">{{ recipe.ingredients }}</div>
+                <div v-if="recipe.ingredients" class="text-xs text-gray-400 mt-1 line-clamp-2">{{ formatIngredients(recipe.ingredients) }}</div>
               </div>
               <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 <button @click="openEditRecipe(recipe)" class="p-1 hover:bg-gray-100 rounded" title="编辑">
@@ -189,7 +189,7 @@ const filteredRecipes = computed(() => {
   let result = mealsStore.recipes
   if (recipeSearch.value) {
     const q = recipeSearch.value.toLowerCase()
-    result = result.filter((r) => r.name.toLowerCase().includes(q) || (r.ingredients && r.ingredients.toLowerCase().includes(q)))
+    result = result.filter((r) => r.name.toLowerCase().includes(q) || (r.ingredients && (Array.isArray(r.ingredients) ? r.ingredients.some(i => i.toLowerCase().includes(q)) : r.ingredients.toLowerCase().includes(q))))
   }
   return result
 })
@@ -299,11 +299,17 @@ async function handleExportShopping() {
   try {
     const start = weekStart.value.format('YYYY-MM-DD')
     const end = weekStart.value.add(6, 'day').format('YYYY-MM-DD')
-    await mealsStore.exportToShopping(start)
+    await mealsStore.exportToShopping(start, end)
     await shoppingStore.fetchItems()
   } catch {
     // handled
   }
+}
+
+function formatIngredients(ingredients) {
+  if (!ingredients) return ''
+  if (Array.isArray(ingredients)) return ingredients.join('、')
+  return ingredients
 }
 
 async function loadMealPlan() {

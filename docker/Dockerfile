@@ -10,6 +10,8 @@ RUN npm run build
 FROM python:3.13-slim
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 COPY backend/pyproject.toml ./
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && pip install --no-cache-dir .
 
@@ -21,6 +23,9 @@ RUN mkdir -p /app/data /app/backups && \
     chown -R appuser:appuser /app
 
 USER appuser
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -sf http://localhost:8090/api/health || exit 1
 
 EXPOSE 8090
 

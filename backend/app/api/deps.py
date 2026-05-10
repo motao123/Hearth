@@ -52,7 +52,7 @@ async def get_current_user(
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    """要求当前用户为管理员"""
-    if not user.is_admin:
+    """要求当前用户为家庭管理员（检查 member.role）"""
+    if not user.member or user.member.role != "admin":
         raise HTTPException(403, "需要管理员权限")
     return user

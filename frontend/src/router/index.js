@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const routes = [
   {
@@ -28,14 +29,18 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, from) => {
-  // Simple check: if not on login page, try to verify auth
-  // The actual auth check happens via API calls (401 redirects to login)
-  // This guard prevents flash of content for unauthenticated users
-  if (to.name !== 'Login' && from.name === undefined) {
-    // First navigation — let it through, the MainLayout will call fetchMe()
-    // If fetchMe fails, the 401 interceptor will redirect to login
+router.beforeEach(async (to, from) => {
+  if (to.name === 'Login') {
+    return true
   }
+  const auth = useAuthStore()
+  if (!auth.user && !auth.loading) {
+    await auth.fetchMe()
+  }
+  if (!auth.user) {
+    return { name: 'Login' }
+  }
+  return true
 })
 
 export default router

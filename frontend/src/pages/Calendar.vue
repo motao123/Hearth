@@ -110,8 +110,8 @@
       <div v-if="detailEvent" class="space-y-3">
         <div class="flex items-center gap-2 text-sm text-gray-600">
           <span>📅</span>
-          <span>{{ formatDate(detailEvent.date) }}</span>
-          <span v-if="detailEvent.time">{{ detailEvent.time }}</span>
+          <span>{{ formatDate(detailEvent.start_time || detailEvent.date) }}</span>
+          <span v-if="detailEvent.time || (detailEvent.start_time && detailEvent.start_time.length >= 16)">{{ detailEvent.time || detailEvent.start_time.substring(11, 16) }}</span>
         </div>
         <div v-if="detailEvent.description" class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{{ detailEvent.description }}</div>
         <div class="flex gap-3 pt-2">
@@ -252,10 +252,13 @@ function openEventDetail(event) {
 function openEditFromDetail() {
   if (!detailEvent.value) return
   editingEvent.value = detailEvent.value
+  const st = detailEvent.value.start_time || ''
+  const datePart = detailEvent.value.date || (st ? st.substring(0, 10) : '')
+  const timePart = detailEvent.value.time || (st.length >= 16 ? st.substring(11, 16) : '')
   form.value = {
     title: detailEvent.value.title,
-    date: detailEvent.value.date || '',
-    time: detailEvent.value.time || '',
+    date: datePart,
+    time: timePart,
     description: detailEvent.value.description || '',
     color: detailEvent.value.color || 'default',
   }

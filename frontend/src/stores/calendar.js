@@ -21,8 +21,16 @@ export const useCalendarStore = defineStore('calendar', () => {
     return m[c] ?? c
   }
   function _toPayload(data) {
-    const start = data.date && data.time ? `${data.date}T${data.time}:00` : data.start_time || data.date
-    return { ...data, start_time: start, color: _mapColor(data.color) }
+    const payload = { ...data }
+    if (payload.date && payload.time) {
+      payload.start_time = `${payload.date}T${payload.time}:00`
+      delete payload.date
+      delete payload.time
+    } else if (!payload.start_time && payload.date) {
+      payload.start_time = payload.date
+    }
+    payload.color = _mapColor(payload.color)
+    return payload
   }
 
   async function createEvent(data) {

@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -10,15 +11,36 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.core.config import settings
-from app.core.database import init_db
+from app.core.database import init_db, async_session
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
+
+
+async def _cleanup_revoked_tokens():
+    """Background task: periodically remove expired revoked tokens."""
+    from datetime import datetime, timezone
+    from sqlalchemy import delete, text
+    from app.models.family import RevokedToken
+    while True:
+        await asyncio.sleep(3600)  # every hour
+        try:
+            async with async_session() as db:
+                await db.execute(
+                    delete(RevokedToken).where(
+                        RevokedToken.expires_at < datetime.now(timezone.utc)
+                    )
+                )
+                await db.commit()
+        except Exception:
+            pass
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    task = asyncio.create_task(_cleanup_revoked_tokens())
     yield
+    task.cancel()
 
 
 app = FastAPI(
@@ -50,7 +72,11 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if not settings.debug:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Prevent caching of index.html to avoid stale asset references after rebuilds
+    if request.url.path in ("/", "/index.html"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return response
 
 

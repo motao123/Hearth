@@ -35,8 +35,12 @@ export const useMealsStore = defineStore('meals', () => {
   function _toRecipePayload(data) {
     return {
       name: data.name,
-      ingredients: typeof data.ingredients === 'string' ? data.ingredients.split('\n').filter(Boolean) : data.ingredients,
-      steps: typeof data.instructions === 'string' ? data.instructions.split('\n').filter(Boolean) : data.steps || [],
+      ingredients: typeof data.ingredients === 'string' ? data.ingredients.split('\n').filter(Boolean) : (data.ingredients || []),
+      steps: typeof data.steps === 'string' ? data.steps.split('\n').filter(Boolean) : (data.steps || typeof data.instructions === 'string' ? data.instructions.split('\n').filter(Boolean) : data.steps || []),
+      cooking_time: data.cooking_time,
+      difficulty: data.difficulty,
+      description: data.description,
+      servings: data.servings,
     }
   }
 
@@ -58,8 +62,8 @@ export const useMealsStore = defineStore('meals', () => {
     recipes.value = recipes.value.filter((r) => r.id !== id)
   }
 
-  async function exportToShopping(date) {
-    const { data } = await api.post('/api/meals/export-to-shopping', { start_date: date, end_date: date })
+  async function exportToShopping(startDate, endDate) {
+    const { data } = await api.post('/api/meals/export-to-shopping', { start_date: startDate, end_date: endDate || startDate })
     return data
   }
 

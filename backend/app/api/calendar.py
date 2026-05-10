@@ -1,8 +1,8 @@
 """日历接口 - 事件增删改查、中国法定节假日、农历转换"""
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models.family import CalendarEvent, User
 from app.api.deps import get_current_user
 from app.utils.lunar import solar_to_lunar, get_major_lunar_festivals
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 
@@ -40,6 +41,11 @@ class EventCreate(BaseModel):
     source: Literal["local", "caldav", "ics"] = "local"
     source_id: str | None = Field(default=None, max_length=255)
 
+    @field_validator("title", "description", "source_id", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
     def model_post_init(self, __context):
         _normalize_event(self.__dict__)
         if not self.start_time:
@@ -57,8 +63,16 @@ class EventUpdate(BaseModel):
     color: str | None = Field(default=None, max_length=7)
     member_id: int | None = None
 
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
     def model_post_init(self, __context):
-        _normalize_event({k: v for k, v in self.__dict__.items() if v is not None})
+        data = {k: v for k, v in self.__dict__.items() if v is not None}
+        normalized = _normalize_event(data)
+        for k, v in normalized.items():
+            setattr(self, k, v)
 
 
 def _event_dict(e: CalendarEvent) -> dict:
@@ -79,8 +93,8 @@ def _event_dict(e: CalendarEvent) -> dict:
 
 @router.get("/events")
 async def list_events(
-    start: str,
-    end: str,
+    start: str | None = None,
+    end: str | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -88,11 +102,15 @@ async def list_events(
         raise HTTPException(403, "当前用户未关联家庭成员")
     family_id = user.member.family_id
 
+    now = datetime.now(timezone.utc)
+    start = start or now.replace(day=1).strftime("%Y-%m-%d")
+    end = end or now.strftime("%Y-%m-%d")
+
     result = await db.execute(
         select(CalendarEvent).where(
             CalendarEvent.family_id == family_id,
             CalendarEvent.start_time >= start,
-            CalendarEvent.start_time <= end,
+            CalendarEvent.start_time <= end + "T23:59:59",
         ).order_by(CalendarEvent.start_time)
     )
     events = result.scalars().all()
@@ -178,7 +196,7 @@ async def delete_event(
 
 @router.get("/holidays/cn")
 async def chinese_holidays(
-    year: int = 2026,
+    year: int = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

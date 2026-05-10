@@ -78,7 +78,8 @@ def solar_to_lunar(solar_date: date) -> dict | None:
         try:
             solar = Solar(solar_date.year, solar_date.month, solar_date.day)
             lunar = Converter.Solar2Lunar(solar)
-            month_name = _lunar_month_name(lunar.month, lunar.is_leap)
+            is_leap = lunar.isleap
+            month_name = _lunar_month_name(lunar.month, is_leap)
             day_name = _lunar_day_name(lunar.day)
             return {
                 "solar_date": solar_date.isoformat(),
@@ -88,7 +89,7 @@ def solar_to_lunar(solar_date: date) -> dict | None:
                 "lunar_month_name": month_name,
                 "lunar_day": lunar.day,
                 "lunar_day_name": day_name,
-                "is_leap": lunar.is_leap,
+                "is_leap": is_leap,
                 "full_name": f"{_year_name(lunar.year)}{month_name}{day_name}",
             }
         except Exception:

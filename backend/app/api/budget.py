@@ -1,10 +1,11 @@
 """收支预算接口 - 增删改查、月度摘要、红包人情、CSV导出"""
 import csv
 import io
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.family import BudgetEntry, User
 from app.api.deps import get_current_user
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 
@@ -27,6 +29,11 @@ class EntryCreate(BaseModel):
     is_hongbao: bool = False
     counterparty: str | None = Field(default=None, max_length=100)
 
+    @field_validator("category", "description", "counterparty", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
 
 class EntryUpdate(BaseModel):
     type: Literal["income", "expense"] | None = None
@@ -38,6 +45,11 @@ class EntryUpdate(BaseModel):
     is_recurring: bool | None = None
     is_hongbao: bool | None = None
     counterparty: str | None = Field(default=None, max_length=100)
+
+    @field_validator("category", "description", "counterparty", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
 
 
 def _entry_dict(e: BudgetEntry) -> dict:
@@ -59,8 +71,8 @@ def _entry_dict(e: BudgetEntry) -> dict:
 
 @router.get("/entries")
 async def list_entries(
-    year: int,
-    month: int,
+    year: int | None = None,
+    month: int | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -68,6 +80,10 @@ async def list_entries(
     if not user.member:
         raise HTTPException(403, "当前用户未关联家庭成员")
     family_id = user.member.family_id
+
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
 
     # 构建日期范围
     start_date = f"{year:04d}-{month:02d}-01"
@@ -169,8 +185,8 @@ async def delete_entry(
 
 @router.get("/summary")
 async def monthly_summary(
-    year: int,
-    month: int,
+    year: int | None = None,
+    month: int | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -178,6 +194,10 @@ async def monthly_summary(
     if not user.member:
         raise HTTPException(403, "当前用户未关联家庭成员")
     family_id = user.member.family_id
+
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
 
     start_date = f"{year:04d}-{month:02d}-01"
     if month == 12:
@@ -251,8 +271,8 @@ async def list_hongbao(
 
 @router.get("/export")
 async def export_csv(
-    year: int,
-    month: int,
+    year: int | None = None,
+    month: int | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -260,6 +280,10 @@ async def export_csv(
     if not user.member:
         raise HTTPException(403, "当前用户未关联家庭成员")
     family_id = user.member.family_id
+
+    now = datetime.now(timezone.utc)
+    year = year or now.year
+    month = month or now.month
 
     start_date = f"{year:04d}-{month:02d}-01"
     if month == 12:

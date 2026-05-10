@@ -263,7 +263,7 @@ function handleDelete() {
 
 async function togglePin(note) {
   try {
-    await notesStore.updateNote(note.id, { ...note, pinned: !note.pinned })
+    await notesStore.updateNote(note.id, { pinned: !note.pinned })
   } catch {
     // handled
   }

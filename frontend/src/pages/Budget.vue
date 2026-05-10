@@ -11,7 +11,7 @@
           <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
         <button @click="goCurrentMonth" class="px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">本月</button>
-        <button @click="showAddModal = true" class="inline-flex items-center gap-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium whitespace-nowrap">
+        <button @click="showModal = true" class="inline-flex items-center gap-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium whitespace-nowrap">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           添加记录
         </button>
@@ -151,6 +151,7 @@
 import { ref, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { useBudgetStore } from '@/stores/budget'
+import api from '@/utils/api'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -199,21 +200,43 @@ const displayEntries = computed(() => {
   return budgetStore.entries
 })
 
-const trendBars = computed(() => {
-  const bars = []
+const historicalSummaries = ref({})
+
+async function loadTrendData() {
+  const summaries = {}
+  const promises = []
   for (let i = 5; i >= 0; i--) {
     const m = dayjs().subtract(i, 'month')
-    const label = m.format('M月')
-    // Use summary data if available, otherwise show placeholder
-    const income = i === 0 ? (budgetStore.summary.income || 0) : 0
-    const expense = i === 0 ? (budgetStore.summary.expense || 0) : 0
-    const max = Math.max(income, expense, 1)
-    const total = income + expense
+    const key = `${m.year()}-${m.month() + 1}`
+    promises.push(
+      api.get('/api/budget/summary', { params: { year: m.year(), month: m.month() + 1 } })
+        .then(({ data }) => { summaries[key] = { income: data.total_income || 0, expense: data.total_expense || 0 } })
+        .catch(() => { summaries[key] = { income: 0, expense: 0 } })
+    )
+  }
+  await Promise.allSettled(promises)
+  historicalSummaries.value = summaries
+}
+
+const trendBars = computed(() => {
+  const bars = []
+  let globalMax = 0
+  const raw = []
+  for (let i = 5; i >= 0; i--) {
+    const m = dayjs().subtract(i, 'month')
+    const key = `${m.year()}-${m.month() + 1}`
+    const summary = historicalSummaries.value[key] || { income: 0, expense: 0 }
+    const income = summary.income || 0
+    const expense = summary.expense || 0
+    globalMax = Math.max(globalMax, income, expense, 1)
+    raw.push({ label: m.format('M月'), income, expense })
+  }
+  for (const item of raw) {
     bars.push({
-      label,
-      height: total > 0 ? Math.max((total / max) * 80, 10) : 10,
-      incomeRatio: total > 0 ? income / total : 0.5,
-      expenseRatio: total > 0 ? expense / total : 0.5,
+      label: item.label,
+      height: (item.income + item.expense) > 0 ? Math.max((Math.max(item.income, item.expense) / globalMax) * 80, 10) : 10,
+      incomeRatio: (item.income + item.expense) > 0 ? item.income / (item.income + item.expense) : 0.5,
+      expenseRatio: (item.income + item.expense) > 0 ? item.expense / (item.income + item.expense) : 0.5,
     })
   }
   return bars
@@ -323,6 +346,7 @@ async function loadData() {
     budgetStore.fetchEntries(y, m),
     budgetStore.fetchSummary(y, m),
     loadHongbao(),
+    loadTrendData(),
   ])
 }
 

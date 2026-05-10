@@ -119,13 +119,23 @@ async def upload_file(
         raise HTTPException(400, "文件内容为空")
 
     # Verify actual file type using magic bytes
+    OFFICE_EXTENSIONS = {".docx", ".xlsx", ".doc", ".xls"}
     kind = filetype.guess(contents)
     if kind is not None:
-        detected_mime = MIME_ALIASES.get(kind.mime, kind.mime)
-        # For office files (which are ZIP-based), allow through if extension matched
-        if detected_mime not in ALLOWED_MIME_TYPES and ext not in {".docx", ".xlsx", ".doc", ".xls"}:
-            raise HTTPException(400, f"文件实际类型({detected_mime})与声明类型不匹配")
-    # Text files won't be detected by filetype — that's OK, we already checked extension
+        detected_mime = kind.mime
+        if ext in OFFICE_EXTENSIONS:
+            # Office files are ZIP-based: must be detected as ZIP
+            if detected_mime != "application/zip":
+                raise HTTPException(400, f"文件实际类型({detected_mime})与声明类型不匹配")
+            valid_mime = MIME_ALIASES.get(detected_mime, detected_mime)
+        else:
+            valid_mime = MIME_ALIASES.get(detected_mime, detected_mime)
+            if valid_mime not in ALLOWED_MIME_TYPES:
+                raise HTTPException(400, f"文件实际类型({valid_mime})与声明类型不匹配")
+    elif ext in OFFICE_EXTENSIONS:
+        # Undetected office file — allow if extension is valid
+        pass
+    # Text/CSV/MD files won't be detected by filetype — already checked extension above
 
     safe_name = _safe_filename(file.filename or "unknown")
     upload_dir = _get_upload_dir(family_id)

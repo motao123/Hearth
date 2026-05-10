@@ -4,12 +4,13 @@ import api from '@/utils/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
+  const loading = ref(false)
+  const error = ref(null)
   const isAuthenticated = computed(() => !!user.value)
 
   async function login(username, password) {
     const { data } = await api.post('/api/auth/login', { username, password })
     user.value = { is_admin: data.is_admin }
-    // Fetch full user info after login
     await fetchMe()
   }
 
@@ -29,13 +30,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchMe() {
+    loading.value = true
+    error.value = null
     try {
       const { data } = await api.get('/api/auth/me')
       user.value = data
-    } catch {
-      user.value = null
+    } catch (e) {
+      if (e.response?.status === 401) {
+        user.value = null
+      }
+      error.value = e.response?.data?.detail || e.message
+    } finally {
+      loading.value = false
     }
   }
 
-  return { user, isAuthenticated, login, register, logout, fetchMe }
+  return { user, loading, error, isAuthenticated, login, register, logout, fetchMe }
 })

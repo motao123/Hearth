@@ -20,7 +20,7 @@ class Member(Base):
     __tablename__ = "members"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     name: Mapped[str] = mapped_column(String(50))
     role: Mapped[str] = mapped_column(String(20), default="member")  # admin / member / child
     avatar: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -36,7 +36,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True, index=True)
     username: Mapped[str] = mapped_column(String(50), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -51,12 +51,12 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="todo")  # todo / doing / done
+    status: Mapped[str] = mapped_column(String(20), default="todo")  # todo / in_progress / done
     priority: Mapped[str] = mapped_column(String(10), default="normal")  # low / normal / high
-    assignee_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True)
+    assignee_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True, index=True)
     due_date: Mapped[str] = mapped_column(String(10), nullable=True)
     points: Mapped[int] = mapped_column(Integer, default=0)  # 家务积分
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -69,11 +69,11 @@ class ShoppingItem(Base):
     __tablename__ = "shopping_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     aisle: Mapped[str] = mapped_column(String(50), nullable=True)  # 分类/通道
     quantity: Mapped[str] = mapped_column(String(30), nullable=True)
-    checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    checked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     added_by: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -82,8 +82,8 @@ class MealPlan(Base):
     __tablename__ = "meal_plans"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
-    date: Mapped[str] = mapped_column(String(10))  # ISO date
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
+    date: Mapped[str] = mapped_column(String(10), index=True)  # ISO date
     slot: Mapped[str] = mapped_column(String(20))  # breakfast / lunch / dinner
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), nullable=True)
     custom_meal: Mapped[str] = mapped_column(String(200), nullable=True)
@@ -94,11 +94,14 @@ class Recipe(Base):
     __tablename__ = "recipes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     ingredients: Mapped[str] = mapped_column(Text)  # JSON array
     steps: Mapped[str] = mapped_column(Text)  # JSON array
     servings: Mapped[int] = mapped_column(Integer, default=4)
+    cooking_time: Mapped[int] = mapped_column(Integer, nullable=True)
+    difficulty: Mapped[str] = mapped_column(String(20), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
     tags: Mapped[str] = mapped_column(String(200), nullable=True)
     image: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -108,7 +111,7 @@ class BudgetEntry(Base):
     __tablename__ = "budget_entries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     type: Mapped[str] = mapped_column(String(10))  # income / expense
     amount: Mapped[float] = mapped_column(Float)
     category: Mapped[str] = mapped_column(String(50))
@@ -125,10 +128,10 @@ class CalendarEvent(Base):
     __tablename__ = "calendar_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    start_time: Mapped[str] = mapped_column(String(20))
+    start_time: Mapped[str] = mapped_column(String(20), index=True)
     end_time: Mapped[str] = mapped_column(String(20), nullable=True)
     all_day: Mapped[bool] = mapped_column(Boolean, default=False)
     color: Mapped[str] = mapped_column(String(7), nullable=True)
@@ -141,7 +144,7 @@ class Note(Base):
     __tablename__ = "notes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=True)
     content: Mapped[str] = mapped_column(Text, default="")
     color: Mapped[str] = mapped_column(String(7), default="#FFE066")
@@ -154,7 +157,7 @@ class Upload(Base):
     __tablename__ = "uploads"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"))
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id"), index=True)
     filename: Mapped[str] = mapped_column(String(255))
     original_name: Mapped[str] = mapped_column(String(255))
     mime_type: Mapped[str] = mapped_column(String(100))

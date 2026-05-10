@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.security import create_token, decode_token, hash_password, verify_password
 from app.models.family import Family, Member, User, RevokedToken
 from app.api.deps import get_current_user
+from app.utils.sanitize import strip_html
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
@@ -53,6 +54,11 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     name: str = Field(min_length=1, max_length=50)
 
+    @field_validator("username", "name", mode="before")
+    @classmethod
+    def _sanitize(cls, v):
+        return strip_html(v)
+
     def model_post_init(self, __context):
         if len(self.password) < 8:
             raise ValueError("密码长度不能少于8位")
@@ -76,7 +82,7 @@ class UserInfoResponse(BaseModel):
 
 
 @router.post("/register", response_model=AuthResponse)
-@limiter.limit("3/minute")
+@limiter.limit(settings.rate_limit_register)
 async def register(request: Request, response: Response, req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """注册新用户 - 自动创建家庭和成员"""
     exists = (await db.execute(select(User).where(User.username == req.username))).scalar_one_or_none()
@@ -111,7 +117,7 @@ async def register(request: Request, response: Response, req: RegisterRequest, d
 
 
 @router.post("/login", response_model=AuthResponse)
-@limiter.limit("5/minute")
+@limiter.limit(settings.rate_limit_login)
 async def login(request: Request, response: Response, req: LoginRequest, db: AsyncSession = Depends(get_db)):
     """用户登录 - 设置 httpOnly cookie"""
     user = (await db.execute(select(User).where(User.username == req.username))).scalar_one_or_none()

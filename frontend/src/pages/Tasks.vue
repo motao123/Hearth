@@ -217,7 +217,7 @@ const form = ref({
 const filteredTasks = computed(() => {
   let result = tasksStore.tasks
   if (filterPriority.value) result = result.filter((t) => t.priority === filterPriority.value)
-  if (filterAssignee.value) result = result.filter((t) => t.assignee_id === filterAssignee.value)
+  if (filterAssignee.value) result = result.filter((t) => String(t.assignee_id) === String(filterAssignee.value))
   return result
 })
 
@@ -247,7 +247,7 @@ async function moveTask(task, newStatus) {
     if (newStatus === 'done') {
       await tasksStore.completeTask(task.id)
     } else {
-      await tasksStore.updateTask(task.id, { ...task, status: newStatus })
+      await tasksStore.updateTask(task.id, { status: newStatus })
     }
   } catch {
     // handled by store
