@@ -46,6 +46,17 @@ def upgrade() -> None:
         sa.Column("username", sa.String(50), unique=True, nullable=False),
         sa.Column("hashed_password", sa.String(255), nullable=False),
         sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("failed_login_attempts", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("locked_until", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+    )
+
+    # Revoked tokens
+    op.create_table(
+        "revoked_tokens",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("jti", sa.String(64), unique=True, index=True, nullable=False),
+        sa.Column("expires_at", sa.DateTime(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
 
@@ -168,6 +179,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_table("revoked_tokens")
     op.drop_table("uploads")
     op.drop_table("notes")
     op.drop_table("calendar_events")
